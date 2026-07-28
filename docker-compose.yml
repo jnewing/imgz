@@ -1,0 +1,80 @@
+# imgz - self-hosted stack.
+#
+# Copy .env.docker.example to .env, set APP_KEY / APP_URL / DB_PASSWORD, then:
+#   docker compose up -d
+#
+# The app container runs Laravel Octane on FrankenPHP and serves /i/* image
+# files statically. It listens on plain HTTP (port 8000) and expects to sit
+# behind a TLS-terminating reverse proxy (e.g. Pangolin/Traefik) that provides
+# HTTPS. Point your proxy at the app service / the published APP_PORT.
+#
+# Uploaded images are stored at IMGZ_IMAGES_PATH. It defaults to the managed
+# `images` named volume below; set it in .env to an absolute host path (e.g.
+# /srv/imgz/images) to bind-mount a directory you control instead.
+
+services:
+    app:
+        image: ${IMGZ_IMAGE:-reg.xfnet.org/imgz/app:latest}
+        restart: unless-stopped
+        env_file: .env
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        volumes:
+            - ${IMGZ_IMAGES_PATH:-images}:/app/storage/app/images
+        ports:
+            - "${APP_PORT:-8000}:8000"
+
+    queue:
+        image: ${IMGZ_IMAGE:-reg.xfnet.org/imgz/app:latest}
+        restart: unless-stopped
+        env_file: .env
+        # The worker shares the images volume so it can write thumbnails, and
+        # must not run migrations or cache config (the app container owns that).
+        environment:
+            RUN_MIGRATIONS: "false"
+            CACHE_CONFIG: "false"
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        volumes:
+            - ${IMGZ_IMAGES_PATH:-images}:/app/storage/app/images
+        command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600", "--sleep=1"]
+
+    db:
+        image: postgres:17-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${DB_DATABASE:-imgz}
+            POSTGRES_USER: ${DB_USERNAME:-imgz}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a strong DB_PASSWORD in .env}
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-imgz} -d ${DB_DATABASE:-imgz}"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        command: ["redis-server", "--appendonly", "yes"]
+        volumes:
+            - redisdata:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+
+volumes:
+    # Default store for uploaded images. Unused if IMGZ_IMAGES_PATH points at a
+    # host directory instead (see the header note).
+    images:
+    pgdata:
+    redisdata:
