@@ -14,7 +14,7 @@
 
 services:
     app:
-        image: ${IMGZ_IMAGE:-reg.xfnet.org/imgz/app:latest}
+        image: ${IMGZ_IMAGE:-ghcr.io/jnewing/imgz:latest}
         restart: unless-stopped
         env_file: .env
         depends_on:
@@ -28,7 +28,7 @@ services:
             - "${APP_PORT:-8000}:8000"
 
     queue:
-        image: ${IMGZ_IMAGE:-reg.xfnet.org/imgz/app:latest}
+        image: ${IMGZ_IMAGE:-ghcr.io/jnewing/imgz:latest}
         restart: unless-stopped
         env_file: .env
         # The worker shares the images volume so it can write thumbnails, and
