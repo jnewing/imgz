@@ -25,6 +25,37 @@ it('increments the view count', function () {
     expect($image->fresh()->views)->toBe(5);
 });
 
+it('does not count repeat views from the same browser within the dedupe window', function () {
+    $image = Image::factory()->create(['views' => 0]);
+
+    $first = $this->get("/i/{$image->public_id}");
+    $visitor = $first->getCookie('imgz_visitor', false)->getValue();
+
+    $this->withUnencryptedCookie('imgz_visitor', $visitor)->get("/i/{$image->public_id}");
+    $this->withUnencryptedCookie('imgz_visitor', $visitor)->get("/i/{$image->public_id}");
+
+    expect($image->fresh()->views)->toBe(1);
+});
+
+it('counts views from different browsers separately', function () {
+    $image = Image::factory()->create(['views' => 0]);
+
+    $this->withUnencryptedCookie('imgz_visitor', 'browser-one')->get("/i/{$image->public_id}");
+    $this->withUnencryptedCookie('imgz_visitor', 'browser-two')->get("/i/{$image->public_id}");
+
+    expect($image->fresh()->views)->toBe(2);
+});
+
+it('counts every view when the dedupe window is disabled', function () {
+    config()->set('imgz.views.dedupe_minutes', 0);
+    $image = Image::factory()->create(['views' => 0]);
+
+    $this->get("/i/{$image->public_id}");
+    $this->get("/i/{$image->public_id}");
+
+    expect($image->fresh()->views)->toBe(2);
+});
+
 it('does not leak the delete token on the view page', function () {
     $image = Image::factory()->create();
 

@@ -146,4 +146,18 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Views
+    |--------------------------------------------------------------------------
+    |
+    | A view is only counted once per browser within this window, so refreshing
+    | the page doesn't inflate the count. Set to 0 to count every request.
+    |
+    */
+
+    'views' => [
+        'dedupe_minutes' => (int) env('IMGZ_VIEW_DEDUPE_MINUTES', 360),
+    ],
+
 ];

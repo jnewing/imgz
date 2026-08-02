@@ -40,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // uploader) is normalized before Sanctum authenticates the request.
         $middleware->prepend(NormalizeBearerToken::class);
 
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->encryptCookies(except: ['appearance', 'sidebar_state', 'imgz_visitor']);
 
         // The FILEHOST upload endpoint is called by external IRC clients that
         // cannot supply a CSRF token; it is protected by rate limiting and the

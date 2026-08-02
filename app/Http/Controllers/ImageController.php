@@ -12,6 +12,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -29,12 +32,45 @@ class ImageController extends Controller
         // expired uploads are gone.
         abort_if($image->isExpired(), HttpResponse::HTTP_NOT_FOUND);
 
-        $image->increment('views');
+        $this->countView($request, $image);
 
         return Inertia::render('image/Show', [
             'image' => (new ImageResource($image))->resolve($request),
             'reportReasons' => ReportReason::options(),
         ]);
+    }
+
+    /**
+     * Count a view, but only once per browser within the dedupe window, so
+     * refreshing the page doesn't inflate the count. Keyed by a per-browser
+     * cookie rather than IP, so viewers behind the same NAT count separately.
+     */
+    private function countView(Request $request, Image $image): void
+    {
+        $minutes = (int) config('imgz.views.dedupe_minutes');
+
+        if ($minutes <= 0) {
+            $image->increment('views');
+
+            return;
+        }
+
+        // first request has no cookie yet, so mint one and use it right away;
+        // the browser gets it on this response and sends it back next time.
+        $visitor = $request->cookie('imgz_visitor');
+
+        if (! is_string($visitor) || $visitor === '') {
+            $visitor = Str::random(32);
+            Cookie::queue('imgz_visitor', $visitor, 60 * 24 * 365);
+        }
+
+        $key = "image-view:{$image->public_id}:{$visitor}";
+
+        // Cache::add is atomic and only succeeds when the key is absent, so the
+        // first hit in the window counts and later refreshes don't.
+        if (Cache::add($key, true, now()->addMinutes($minutes))) {
+            $image->increment('views');
+        }
     }
 
     /**
