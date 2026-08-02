@@ -7,7 +7,7 @@ DC_DEV  ?= docker compose -f docker-compose.dev.yml
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev dev-up dev-down dev-fresh psql wayfinder test lint typecheck ci release release-dry
+.PHONY: help dev dev-up dev-down dev-fresh psql wayfinder test lint typecheck ci
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -47,9 +47,3 @@ typecheck: ## Run static analysis (Larastan) and Vue type checking
 	npm run types:check
 
 ci: lint typecheck test ## Run the full local quality gate
-
-release: ## Build and push the production image (bumps patch; pass ARGS=--minor etc.)
-	scripts/release.sh $(ARGS)
-
-release-dry: ## Build the production image without pushing
-	scripts/release.sh --dry-run $(ARGS)
