@@ -24,11 +24,14 @@ FrankenPHP + Octane in production.
 
 ## running it (docker)
 
+the image lives on ghcr at `ghcr.io/jnewing/imgz`; docker compose pulls it for
+you, so all you need is a config file:
+
 ```sh
 cp .env.docker.example .env
 
 # generate a key and paste it into .env as APP_KEY
-docker run --rm dunglas/frankenphp:1-php8.4-bookworm php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"
+docker run --rm ghcr.io/jnewing/imgz:latest php artisan key:generate --show
 
 # then edit .env: set APP_URL and a real DB_PASSWORD
 docker compose up -d
